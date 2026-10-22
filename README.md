@@ -221,6 +221,32 @@ The path is illustrative; the runner writes the actual local feed path and selec
 
 The five scenarios intentionally isolate four operations: automatic package addition, automatic package update, exact-version restore, and floating-version restore. Their different outcomes are the point of this POC.
 
+## Findings and engineering implications
+
+The October 22, 2026 Windows/PowerShell run with .NET SDK `11.0.100-rc.2.26504.105` reported **5 scenarios passed, 0 failed**.
+
+| Scenario | Observed result | What it demonstrates |
+| --- | --- | --- |
+| Add without cooldown | `2.0.0` selected | Normal selection can use the recent version |
+| Add with cooldown | `1.0.0` selected | Automatic add respects the cooldown |
+| Update with cooldown | `1.0.0` retained; exit `2` | Automatic update respects the cooldown |
+| Explicit-version restore | `2.0.0` restored | Ordinary exact-version restore is not age-gated |
+| Floating-version restore | `NU1020`; exit `1` | Floating references are rejected with cooldown enabled |
+
+**The central result:** A publication cooldown helps delay *certain automated version selections*. It is not a guarantee that every restored package has passed an age check.
+
+For a development team, that suggests three practical considerations:
+
+1. **Match the policy to the update workflow.** The benefit is greatest when routine package additions and updates actually use tools that honor the cooldown. A CI pipeline that only restores committed exact versions will not obtain an age-based restore gate from this setting.
+2. **Plan how to handle urgent security fixes.** Delaying a newly released patch can increase exposure to a known vulnerability. A deliberate, reviewed exact-version update can still be restored during the cooldown period.
+3. **Use other supply-chain controls too.** Vulnerability auditing, source mapping, package signing/trust policies, code review and reproducible dependency resolution address risks that waiting alone cannot solve.
+
+Our broader manual investigation additionally tested package exceptions, configuration precedence, transitive dependency behavior, locked restores and differences between .NET 10 and .NET 11. **Those are not automated in this five-scenario script.** In particular, the transitive test used an artificially backdated parent package; it should not be presented as evidence that a realistic, recently published malicious parent package would escape the cooldown during automatic selection.
+
+Publication age creates time for detection; it **does not establish trust**. The tests also do not determine whether 24, 48 or 72 hours is the optimal duration for a particular organization.
+
+The runner uses `DOTNET_CLI_ENABLEAOT=false` only inside its PowerShell process to access the managed `dotnet package update` command in this RC2 SDK. It restores previous environment values when finished.
+
 ## The five test scenarios
 
 ### Scenario 1: Add without cooldown — establish the control
@@ -306,33 +332,6 @@ It invokes `dotnet restore` and asserts both that the command exits with code `1
 **Verified finding:** NuGet rejected the floating reference with `NU1020` and exit code `1`. **PASS** — the restore failure is exactly what this scenario was designed to verify.
 
 **Takeaway:** NuGet does **not** simply pick an older eligible version for a floating reference in this situation. Teams using floating versions should evaluate this compatibility impact before enabling a publication cooldown. The script treats the error as a passing test only because it validates both the error code and message.
-
-## Findings and engineering implications
-
-The October 22, 2026 Windows/PowerShell run with .NET SDK `11.0.100-rc.2.26504.105` reported **5 scenarios passed, 0 failed**.
-
-| Scenario | Observed result | What it demonstrates |
-| --- | --- | --- |
-| Add without cooldown | `2.0.0` selected | Normal selection can use the recent version |
-| Add with cooldown | `1.0.0` selected | Automatic add respects the cooldown |
-| Update with cooldown | `1.0.0` retained; exit `2` | Automatic update respects the cooldown |
-| Explicit-version restore | `2.0.0` restored | Ordinary exact-version restore is not age-gated |
-| Floating-version restore | `NU1020`; exit `1` | Floating references are rejected with cooldown enabled |
-
-**The central result:** A publication cooldown helps delay *certain automated version selections*. It is not a guarantee that every restored package has passed an age check.
-
-For a development team, that suggests three practical considerations:
-
-1. **Match the policy to the update workflow.** The benefit is greatest when routine package additions and updates actually use tools that honor the cooldown. A CI pipeline that only restores committed exact versions will not obtain an age-based restore gate from this setting.
-2. **Plan how to handle urgent security fixes.** Delaying a newly released patch can increase exposure to a known vulnerability. A deliberate, reviewed exact-version update can still be restored during the cooldown period.
-3. **Use other supply-chain controls too.** Vulnerability auditing, source mapping, package signing/trust policies, code review and reproducible dependency resolution address risks that waiting alone cannot solve.
-
-Our broader manual investigation additionally tested package exceptions, configuration precedence, transitive dependency behavior, locked restores and differences between .NET 10 and .NET 11. **Those are not automated in this five-scenario script.** In particular, the transitive test used an artificially backdated parent package; it should not be presented as evidence that a realistic, recently published malicious parent package would escape the cooldown during automatic selection.
-
-Publication age creates time for detection; it **does not establish trust**. The tests also do not determine whether 24, 48 or 72 hours is the optimal duration for a particular organization.
-
-The runner uses `DOTNET_CLI_ENABLEAOT=false` only inside its PowerShell process to access the managed `dotnet package update` command in this RC2 SDK. It restores previous environment values when finished.
-
 
 ## Output and cleanup
 
