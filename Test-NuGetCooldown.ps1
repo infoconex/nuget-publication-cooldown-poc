@@ -163,7 +163,15 @@ function Show-Summary {
     Write-Host ('{0,-4} {1,-29} {2,-8} {3}' -f '#', 'Scenario', 'Status', 'Finding')
     foreach ($Item in $Results) {
         $Color = if ($Item.Status -eq 'PASS') { 'Green' } else { 'Red' }
-        Write-Host ('{0,-4} {1,-29} {2,-8} {3}' -f $Item.Number, $Item.Scenario, $Item.Status, $Item.Finding) -ForegroundColor $Color
+        $Short = switch ($Item.Number) {
+            1 { 'Newest 2.0.0 selected' }
+            2 { 'Older 1.0.0 selected' }
+            3 { '1.0.0 retained (exit 2)' }
+            4 { 'Pinned 2.0.0 restored' }
+            5 { 'NU1020 on floating restore' }
+        }
+        if ($Item.Status -ne 'PASS') { $Short = 'See failed scenario above' }
+        Write-Host ('{0,-4} {1,-29} {2,-8} {3}' -f $Item.Number, $Item.Scenario, $Item.Status, $Short) -ForegroundColor $Color
     }
     Write-Host ''
     if ($Passed -eq 5 -and $Failed -eq 0) {
@@ -175,6 +183,9 @@ function Show-Summary {
     else {
         Write-Host ('RESULT: {0} PASSED, {1} FAILED (of 5)' -f $Passed, $Failed) -ForegroundColor Red
         Write-Host 'Review failed scenarios and logs before interpreting the findings.'
+        if ($null -ne $PreparationError) {
+            Write-Host ('Preparation failure: {0}' -f $PreparationError) -ForegroundColor Red
+        }
     }
 }
 
@@ -284,7 +295,6 @@ Builds local test packages and assigns deterministic simulated publication ages.
 #>
 function Initialize-TestFeed {
     New-Item -ItemType Directory -Path $Feed -Force | Out-Null
-    Write-Host ('Workspace: {0}' -f $Run)
     $Source = Join-Path $Run 'source'
     $null = Run-Dotnet -Directory $Run -Arguments @('new', 'classlib', '--name', $PackageId, '--framework', 'net11.0', '--output', $Source, '--no-restore')
     $Project = Join-Path $Source 'Cooldown.Sample.csproj'
@@ -340,7 +350,7 @@ catch {
     Write-Host ('PREPARATION FAILED: {0}' -f $PreparationError) -ForegroundColor Red
 }
 finally {
-    if ($Results.Count -gt 0) { Show-Summary }
+    Show-Summary
     if (Test-Path -LiteralPath $Run) {
         $PassCount = @($Results | Where-Object Status -eq 'PASS').Count
         [pscustomobject]@{
