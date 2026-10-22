@@ -60,14 +60,7 @@ git clone https://github.com/infoconex/nuget-publication-cooldown-poc.git
 cd nuget-publication-cooldown-poc
 ~~~
 
-The commands above assume the proof of concept has been merged into the default branch. If you are **reviewing pull request #1 before merge**, switch to its branch first:
-
-~~~powershell
-git fetch origin feature/reproducible-powershell-poc
-git switch feature/reproducible-powershell-poc
-~~~
-
-Once merged, no branch switch is needed.
+The test runner and documentation are on the default `main` branch. No additional branch checkout is needed.
 
 ### 4. Run the five test scenarios
 
