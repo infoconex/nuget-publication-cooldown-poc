@@ -7,20 +7,135 @@ This project supports the investigation for [coding.infoconex.com](https://codin
 ## Prerequisites
 
 - Windows and **PowerShell 7**.
-- .NET 11 RC2 SDK version `11.0.100-rc.2.26504.105`. Newer .NET 11 SDKs with this NuGet feature may also work, but the observed baseline was RC2.
-- No NuGet.org packages, public package publishing, or administrator privileges required.
+- Internet access to install the tool and SDK and clone the repository; the cooldown experiments themselves use only a local feed.
+- Git for the clone instructions below.
+- No administrator access or existing system-wide .NET SDK required.
 
-You can use [infoconex/isolated-dotnet-sdk](https://github.com/infoconex/isolated-dotnet-sdk) to install the SDK without changing your system-wide installation or PATH.
+## Getting started
 
-## Run
+The supported setup uses [Isolated .NET SDK](https://github.com/infoconex/isolated-dotnet-sdk), which installs SDKs under your own `$HOME/dotnet-sdks` directory without modifying the machine-wide SDK installation or PATH.
 
-From the repository root in PowerShell 7:
+### 1. Install Isolated .NET SDK
 
-```powershell
-./Test-NuGetCooldown.ps1 -DotnetPath "$HOME/dotnet-sdks/11.0.100-rc.2.26504.105/dotnet.exe"
-```
+In **PowerShell 7**, run the project's official stable bootstrap:
 
-The script defaults to that isolated SDK location. You can supply a different path using `-DotnetPath`, or a different delay using `-CooldownHours 48`.
+~~~powershell
+irm https://infoconex.github.io/isolated-dotnet-sdk/install.ps1 | iex
+~~~
+
+This bootstrap downloads and checks the published tool release; as with any piped bootstrap, you must trust the HTTPS-delivered entry point. For installation alternatives and security details, see the [Windows getting-started instructions](https://github.com/infoconex/isolated-dotnet-sdk/blob/main/docs/getting-started/windows-powershell.md).
+
+Verify that the tool was installed:
+
+~~~powershell
+& "$HOME/dotnet-sdks/isolated-dotnet-sdk.ps1" -Version
+~~~
+
+### 2. Install and verify .NET 11 RC2
+
+The experiments were validated manually using the exact SDK version `11.0.100-rc.2.26504.105`.
+
+~~~powershell
+$SdkVersion = '11.0.100-rc.2.26504.105'
+
+& "$HOME/dotnet-sdks/isolated-dotnet-sdk.ps1" `
+    -Action Install `
+    -SdkVersion $SdkVersion
+
+& "$HOME/dotnet-sdks/isolated-dotnet-sdk.ps1" `
+    -Action Verify `
+    -SdkVersion $SdkVersion
+
+& "$HOME/dotnet-sdks/$SdkVersion/dotnet.exe" --version
+~~~
+
+The last command should print `11.0.100-rc.2.26504.105`. No system-wide installation or PATH modification is needed.
+
+### 3. Clone this repository
+
+Choose a disposable working directory, then run:
+
+~~~powershell
+git clone https://github.com/infoconex/nuget-publication-cooldown-poc.git
+cd nuget-publication-cooldown-poc
+~~~
+
+While this project is still in review, use the draft pull-request branch:
+
+~~~powershell
+git fetch origin feature/reproducible-powershell-poc
+git switch feature/reproducible-powershell-poc
+~~~
+
+Once the tested change is merged, the default branch will contain the runner.
+
+### 4. Run the five test scenarios
+
+~~~powershell
+./Test-NuGetCooldown.ps1
+~~~
+
+The runner automatically uses the isolated SDK version from step 2. To choose a different supported SDK path or cooldown duration:
+
+~~~powershell
+./Test-NuGetCooldown.ps1 `
+    -DotnetPath "$HOME/dotnet-sdks/11.0.100-rc.2.26504.105/dotnet.exe" `
+    -CooldownHours 48
+~~~
+
+The normal console report displays a title and purpose for each scenario, relevant settings, expected and observed outcomes, and PASS/FAIL. A blank line separates the scenario reports.
+
+### Example console report
+
+Illustrative excerpt; results depend on an actual run:
+
+~~~text
+NuGet Publication Cooldown | Controlled POC
+============================================================================
+SDK       : 11.0.100-rc.2.26504.105
+Cooldown  : 72 hours
+Feed      : Disposable local NuGet feed
+Versions  : 1.0.0 (96h old); 2.0.0 (new)
+
+Preparing local test packages...
+Packages ready.
+
+============================================================================
+SCENARIO 2/5: Add with cooldown
+----------------------------------------------------------------------------
+Evaluates : Does package add defer a newly published version?
+Package   : Cooldown.Sample
+Cooldown  : 72h
+Expected  : 1.0.0 selected and restored
+Observed  : Version 1.0.0 selected and restored
+Exit code : 0
+Result    : PASS
+Finding   : Cooldown defers the recent version during package add.
+
+============================================================================
+SUMMARY OF FINDINGS
+----------------------------------------------------------------------------
+#    Scenario                      Status   Finding
+1    Add without cooldown          PASS     Newest 2.0.0 selected
+2    Add with cooldown             PASS     Older 1.0.0 selected
+3    Update with cooldown          PASS     1.0.0 retained (exit 2)
+4    Explicit-version restore      PASS     Pinned 2.0.0 restored
+5    Floating-version restore      PASS     NU1020 on floating restore
+
+RESULT: 5 PASSED, 0 FAILED
+~~~
+
+### Detailed diagnostic output
+
+To also display the full `dotnet` command output as each test runs:
+
+~~~powershell
+./Test-NuGetCooldown.ps1 -Detailed
+~~~
+
+Full output for **every** command is always saved in numbered files under `artifacts/run-.../logs/`, even when `-Detailed` is not specified. A `results.json` file records the test outcomes.
+
+The expected `NU1020` error in scenario 5 is considered **PASS** only when the script confirms the expected diagnostic and exit code `1`. Likewise, exit code `2` from a cooldown-deferred package update means no eligible update, not necessarily a failed test.
 
 The script builds two `Cooldown.Sample` package versions into a local feed. Their file modification timestamps simulate publication ages: `1.0.0` is older than the selected cooldown and `2.0.0` is newly published.
 
@@ -38,7 +153,7 @@ The script sets `DOTNET_CLI_ENABLEAOT=false` only within its PowerShell process 
 
 ## Output and cleanup
 
-Each run creates a new directory under `artifacts/run-<timestamp>-<id>/` with disposable projects, package files, individual NuGet caches, and `results.json`. The `artifacts` directory is gitignored. Existing runs are never overwritten.
+Each run creates a new directory under `artifacts/run-<timestamp>-<id>/` with disposable projects, package files, individual NuGet caches, , numbered command logs in `logs/`, and `results.json`. The `artifacts` directory is gitignored. Existing runs are never overwritten.
 
 To delete the generated files, from the repository root:
 
