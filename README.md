@@ -85,9 +85,9 @@ The runner automatically uses the isolated SDK version from step 2. To choose a 
 
 The normal console report displays a title and purpose for each scenario, relevant settings, expected and observed outcomes, and PASS/FAIL. A blank line separates the scenario reports.
 
-### Example console report
+### Full example console output
 
-Illustrative excerpt; results depend on an actual run:
+The following is the **complete normal-mode console output** from the successful Windows run on October 22, 2026, using the isolated .NET 11 RC2 SDK and a 72-hour cooldown. Only the local directory paths have been generalized; the five observations and exit codes are from the verified run.
 
 ~~~text
 NuGet Publication Cooldown | Controlled POC
@@ -99,6 +99,18 @@ Versions  : 1.0.0 (96h old); 2.0.0 (new)
 
 Preparing local test packages...
 Packages ready.
+
+============================================================================
+SCENARIO 1/5: Add without cooldown
+----------------------------------------------------------------------------
+Evaluates : Does NuGet choose the newest version with no cooldown?
+Package   : Cooldown.Sample
+Cooldown  : Off
+Expected  : 2.0.0 selected and restored
+Observed  : Version 2.0.0 selected and restored
+Exit code : 0
+Result    : PASS
+Finding   : The latest version is selected without a cooldown.
 
 ============================================================================
 SCENARIO 2/5: Add with cooldown
@@ -113,6 +125,42 @@ Result    : PASS
 Finding   : Cooldown defers the recent version during package add.
 
 ============================================================================
+SCENARIO 3/5: Update with cooldown
+----------------------------------------------------------------------------
+Evaluates : Does package update defer version 2.0.0?
+Package   : Cooldown.Sample
+Cooldown  : 72h
+Expected  : Keep 1.0.0, exit code 2
+Observed  : Version 1.0.0 retained
+Exit code : 2
+Result    : PASS
+Finding   : Update keeps 1.0.0; exit 2 means no eligible update.
+
+============================================================================
+SCENARIO 4/5: Explicit-version restore
+----------------------------------------------------------------------------
+Evaluates : Can an exact recent version be restored anyway?
+Package   : Cooldown.Sample
+Cooldown  : 72h
+Expected  : Pinned 2.0.0 restores
+Observed  : Recent version 2.0.0 restored
+Exit code : 0
+Result    : PASS
+Finding   : Explicit pinned restore is not age-gated.
+
+============================================================================
+SCENARIO 5/5: Floating-version restore
+----------------------------------------------------------------------------
+Evaluates : What happens when a floating version meets a cooldown?
+Package   : Cooldown.Sample
+Cooldown  : 72h
+Expected  : NU1020; exit code 1
+Observed  : NU1020; restore intentionally rejected
+Exit code : 1
+Result    : PASS
+Finding   : Floating versions are rejected with NU1020.
+
+============================================================================
 SUMMARY OF FINDINGS
 ----------------------------------------------------------------------------
 #    Scenario                      Status   Finding
@@ -123,7 +171,17 @@ SUMMARY OF FINDINGS
 5    Floating-version restore      PASS     NU1020 on floating restore
 
 RESULT: 5 PASSED, 0 FAILED
+Cooldown affects automatic version selection, not exact-version restores.
+Floating references fail with NU1020 when cooldown applies.
+Package publication age does not establish safety.
+
+Results  : C:\work\nuget-publication-cooldown-poc\artifacts\run-20261022-155546-36a753cb\results.json
+Logs     : C:\work\nuget-publication-cooldown-poc\artifacts\run-20261022-155546-36a753cb\logs
+Workspace: C:\work\nuget-publication-cooldown-poc\artifacts\run-20261022-155546-36a753cb
+Use -Detailed to show full dotnet command output.
 ~~~
+
+The normal report is designed to show the **result of each scenario**, not every NuGet or MSBuild diagnostic. Use the following option to display the underlying command output, or inspect the saved logs after the run.
 
 ### Detailed diagnostic output
 
