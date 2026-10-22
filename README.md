@@ -153,7 +153,7 @@ The script sets `DOTNET_CLI_ENABLEAOT=false` only within its PowerShell process 
 
 ## Output and cleanup
 
-Each run creates a new directory under `artifacts/run-<timestamp>-<id>/` with disposable projects, package files, individual NuGet caches, , numbered command logs in `logs/`, and `results.json`. The `artifacts` directory is gitignored. Existing runs are never overwritten.
+Each run creates a new directory under `artifacts/run-<timestamp>-<id>/` with disposable projects, package files, individual NuGet caches, numbered command logs in `logs/`, and `results.json`. The `artifacts` directory is gitignored. Existing runs are never overwritten.
 
 To delete the generated files, from the repository root:
 
