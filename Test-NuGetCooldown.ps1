@@ -113,12 +113,14 @@ try {
     $Baseline = New-Consumer -Name 'add-no-cooldown' -Cooldown $false
     $env:NUGET_PACKAGES = Join-Path $Baseline 'packages'
     $Add = Run-Dotnet -Directory $Baseline -Arguments @('package', 'add', $PackageId, '--project', (Join-Path $Baseline 'Consumer.csproj'))
+    $null = Run-Dotnet -Directory $Baseline -Arguments @('restore', (Join-Path $Baseline 'Consumer.csproj'), '--configfile', (Join-Path $Baseline 'nuget.config'), '-p:NuGetAudit=false')
     Assert-Version -Directory $Baseline -Expected '2.0.0'
     Pass -Name 'Add without cooldown' -Observation '2.0.0 selected' -ExitCode $Add.ExitCode
 
     $Cooled = New-Consumer -Name 'add-cooldown' -Cooldown $true
     $env:NUGET_PACKAGES = Join-Path $Cooled 'packages'
     $Add = Run-Dotnet -Directory $Cooled -Arguments @('package', 'add', $PackageId, '--project', (Join-Path $Cooled 'Consumer.csproj'))
+    $null = Run-Dotnet -Directory $Cooled -Arguments @('restore', (Join-Path $Cooled 'Consumer.csproj'), '--configfile', (Join-Path $Cooled 'nuget.config'), '-p:NuGetAudit=false')
     Assert-Version -Directory $Cooled -Expected '1.0.0'
     Pass -Name 'Add with cooldown' -Observation '1.0.0 selected' -ExitCode $Add.ExitCode
 
