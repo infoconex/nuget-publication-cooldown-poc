@@ -307,7 +307,6 @@ function Initialize-TestFeed {
     $Now = [DateTime]::UtcNow
     [IO.File]::SetLastWriteTimeUtc($Old, $Now.AddHours(-($CooldownHours + 24)))
     [IO.File]::SetLastWriteTimeUtc($Recent, $Now)
-
 }
 
 Write-Host 'NuGet Publication Cooldown | Controlled POC' -ForegroundColor Cyan
@@ -320,8 +319,6 @@ try {
     $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
     New-Item -ItemType Directory -Path $Logs -Force | Out-Null
     if (-not (Test-Path -LiteralPath $DotnetPath -PathType Leaf)) { throw ('SDK not found: {0}' -f $DotnetPath) }
-    $env:DOTNET_CLI_ENABLEAOT = 'false'
-    $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
     $SdkVersion = (Run-Dotnet -Arguments @('--version') -Directory $PSScriptRoot).Output
     if ($SdkVersion -notmatch '^11\.') { throw ('Expected a .NET 11 SDK, got {0}' -f $SdkVersion) }
     $Help = Run-Dotnet -Arguments @('nuget', 'add', 'source', '--help') -Directory $PSScriptRoot
